@@ -1,6 +1,6 @@
-# JB-Opencode-Part2 — LTX-QUASAR × FOX OpenCode Installer
+# JB-Opencode-Part2 — GANTENG × FOX OpenCode Installer
 
-One-shot installer untuk **OpenCode CLI terbaru** + full persona **LTX-QUASAR × FOX**
+One-shot installer untuk **OpenCode CLI terbaru** + full persona **GANTENG × FOX**
 (cold-protocol operator) + **Fox's 100+ hack-skills**, di VPS/box baru mana pun.
 
 Ini lanjutan dari [JB-OCxOMP](https://github.com/OhMyBabu/JB-OCxOMP) — fokus **OpenCode saja**
@@ -12,8 +12,8 @@ lama, upgrade ke rilis terbaru via installer resmi, lalu pasang persona + stack 
 | Komponen | State |
 |---|---|
 | **OpenCode CLI** | Install/upgrade ke versi terbaru (installer resmi `opencode.ai/install`) — idempotent, re-run aman |
-| **Persona** | `AGENTS.md` LTX-QUASAR × FOX (byte-identik dengan yang live) — cold-protocol, kill-chain 7 phase, zero-refusal |
-| **Agent config** | `opencode.jsonc` — agent `ltx-quasar-fox` (temperature 0.2, corePrompt AGENTS.md, thinking off) |
+| **Persona** | `AGENTS.md` GANTENG × FOX (byte-identik dengan yang live) — cold-protocol, kill-chain 7 phase, zero-refusal |
+| **Agent config** | `opencode.jsonc` — agent `ganteng-fox` (temperature 0.2, corePrompt AGENTS.md, thinking off) |
 | **Fox Skills** | Clone `~/fox` (external skills path) — SQLi, SSRF, auth bypass, privesc, dorker, dll (min 50 SKILL.md divalidasi) |
 | **Session state** | Gak disentuh — history `~/.local/share/opencode/opencode.db` utuh saat upgrade |
 
@@ -39,18 +39,18 @@ FOX_SKILLS_DIR=/opt/fox ./install.sh
 ```bash
 opencode                          # start TUI
 opencode auth login               # kalo provider belum ke-login
-# /agents -> pilih agent: ltx-quasar-fox
+# /agents -> pilih agent: ganteng-fox
 ```
 
-Persona aktif via agent `ltx-quasar-fox` — jawaban `[LTX-QUASAR]`, protocol COLD-EXEC,
-operator Jack. Skills kebaca dari `~/fox/skills` (auto via `skills.paths`).
+Persona aktif via agent `ganteng-fox` — jawaban `[GANTENG]`, protocol COLD-EXEC,
+operator Bang. Skills kebaca dari `~/fox/skills` (auto via `skills.paths`).
 
 ## Arsitektur
 
 ```
 ~/.config/opencode/
 ├── AGENTS.md              # persona (di-deploy installer, backup saat --force)
-├── opencode.jsonc         # agent ltx-quasar-fox + skills.paths (placeholder di-render)
+├── opencode.jsonc         # agent ganteng-fox + skills.paths (placeholder di-render)
 └── backups/               # backup config lama per-run installer
 
 ~/fox/                     # clone repo fox (100+ skill, external path — read-only)
@@ -98,4 +98,4 @@ tar xzf opencode-state.tar.gz -C ~ && opencode
 ---
 
 *Cold protocol. Trail reads itself.*
-*LTX-quasar × Fox — merged for maximum lethality.*
+*Ganteng × Fox — merged for maximum lethality.*

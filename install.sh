@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # JB-Opencode-Part2 — ONE-SHOT INSTALLER (Hermes Agent-style flow untuk OpenCode)
-# Deploy: opencode CLI terbaru + persona LTX-QUASAR × FOX + agent config + Fox skills
+# Deploy: opencode CLI terbaru + persona GANTENG × FOX + agent config + Fox skills
 set -euo pipefail
 
 REPO_URL="https://github.com/OhMyBabu/JB-Opencode-Part2"
@@ -56,8 +56,8 @@ if [[ "$DRY" == "1" ]]; then
     ok "[DRY-RUN] rencana:"
     echo "  1. install/upgrade opencode -> versi terbaru (installer resmi $OPENCODE_INSTALL_URL)"
     echo "  2. backup config lama (AGENTS.md, opencode.jsonc) -> $BACKUP_DIR (kalo ada)"
-    echo "  3. deploy AGENTS.md (persona LTX-QUASAR x FOX) -> $CONFIG_DIR/AGENTS.md"
-    echo "  4. deploy opencode.jsonc (agent ltx-quasar-fox + skills.paths) -> $CONFIG_DIR/opencode.jsonc"
+    echo "  3. deploy AGENTS.md (persona GANTENG x FOX) -> $CONFIG_DIR/AGENTS.md"
+    echo "  4. deploy opencode.jsonc (agent ganteng-fox + skills.paths) -> $CONFIG_DIR/opencode.jsonc"
     echo "  5. clone/update fox skills -> $FOX_DIR (min $MIN_SKILLS SKILL.md)"
     echo "  6. verifikasi: versi, skill count, config parse"
     exit 0
@@ -98,7 +98,7 @@ fi
 # --- 3. persona ---
 if [[ ! -f "$CONFIG_DIR/AGENTS.md" ]] || [[ "$FORCE" == "1" ]]; then
     cp "$SCRIPT_DIR/AGENTS.md" "$CONFIG_DIR/AGENTS.md"
-    ok "AGENTS.md (persona LTX-QUASAR x FOX) deployed"
+    ok "AGENTS.md (persona GANTENG x FOX) deployed"
 else
     info "AGENTS.md lama dipertahankan (tanpa --force)"
 fi
@@ -110,7 +110,7 @@ if [[ "$want_cfg" == "1" ]]; then
     sed -e "s|__CONFIG_DIR__|$CONFIG_DIR|g" \
         -e "s|__FOX_SKILLS__|$FOX_DIR/skills|g" \
         "$SCRIPT_DIR/opencode.jsonc" > "$CONFIG_DIR/opencode.jsonc"
-    ok "opencode.jsonc deployed (agent ltx-quasar-fox + skills.paths)"
+    ok "opencode.jsonc deployed (agent ganteng-fox + skills.paths)"
 else
     info "opencode.jsonc lama dipertahankan (tanpa --force)"
 fi
@@ -144,7 +144,7 @@ except json.JSONDecodeError:
     raw = re.sub(r"^\s*//.*$", "", raw, flags=re.M)
     raw = re.sub(r",(\s*[}\]])", r"\1", raw)
     cfg = json.loads(raw)
-ag = cfg["agent"]["ltx-quasar-fox"]
+ag = cfg["agent"]["ganteng-fox"]
 assert ag["temperature"] == 0.2
 assert any("AGENTS.md" in p for p in ag["corePrompt"]), "corePrompt bukan AGENTS.md"
 assert any("skills" in p for p in cfg["skills"]["paths"]), "skills.paths salah"
@@ -167,6 +167,6 @@ ok "DONE. OpenCode $v_after + persona + $N skills siap."
 echo
 echo "  Jalankan:   opencode"
 echo "  Auth model: opencode auth login   (kalo provider belum ke-login)"
-echo "  Agent:      /agents -> ltx-quasar-fox"
+echo "  Agent:      /agents -> ganteng-fox"
 echo "  Re-run aman setelah 'opencode update' (config idempotent, pakai --force utk timpa)"
 echo

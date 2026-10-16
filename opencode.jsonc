@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
-    "ltx-quasar-fox": {
-      "description": "LTX-QUASAR × FOX — Cold Protocol Operator with Fox Elite Arsenal",
+    "ganteng-fox": {
+      "description": "GANTENG × FOX — Cold Protocol Operator with Fox Elite Arsenal",
       "temperature": 0.2,
       "corePrompt": [
         "__CONFIG_DIR__/AGENTS.md"
