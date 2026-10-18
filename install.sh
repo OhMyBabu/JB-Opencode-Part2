@@ -81,6 +81,15 @@ if [[ "$v_after" == "GAGAL-CEK" ]]; then
 fi
 ok "OpenCode: $v_before -> $v_after"
 
+# symlink global — 'opencode' langsung kepanggil di shell apa pun,
+# gak nunggu .bashrc kebaca ulang (export resmi installer kadang nempel belakangan)
+REAL_BIN="$(readlink -f "$(command -v opencode)")"
+if [[ -w /usr/local/bin ]]; then
+    ln -sf "$REAL_BIN" /usr/local/bin/opencode
+    ok "symlink /usr/local/bin/opencode -> $REAL_BIN"
+    hash -r 2>/dev/null || true
+fi
+
 # --- 2. backup config lama ---
 mkdir -p "$CONFIG_DIR"
 if [[ -f "$CONFIG_DIR/AGENTS.md" || -f "$CONFIG_DIR/opencode.jsonc" ]]; then
@@ -165,7 +174,7 @@ fi
 echo
 ok "DONE. OpenCode $v_after + persona + $N skills siap."
 echo
-echo "  Jalankan:   opencode"
+echo "  Jalankan:   opencode   (kalo masih 'command not found': exec bash atau login ssh baru)"
 echo "  Auth model: opencode auth login   (kalo provider belum ke-login)"
 echo "  Agent:      /agents -> ganteng-fox"
 echo "  Re-run aman setelah 'opencode update' (config idempotent, pakai --force utk timpa)"
