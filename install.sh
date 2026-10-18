@@ -24,7 +24,16 @@ Usage: ./install.sh [--force] [--dry-run]
   --dry-run   tampilkan rencana aksi tanpa mengubah apa pun
   -h --help   bantuan ini
 
-Zero-prompt: gak ada input wajib. Model/auth lewat 'opencode auth login'.
+Zero-prompt: semua input OPSIONAL — Enter/lewati = diskip.
+  Interaktif: ditanya Base URL / API key / Model id / Provider id
+              (model kosong = auto-detect GET <base>/models)
+  Non-TTY / env mode:
+    PROVIDER_BASE_URL=http://ip:port/v1 \\
+    PROVIDER_API_KEY=sk-... \\
+    PROVIDER_MODEL=model/id \\
+    PROVIDER_ID=9router \\
+    ./install.sh
+  Tanpa provider: pakai 'opencode auth login' atau edit opencode.jsonc nanti.
 Override lokasi skills: FOX_SKILLS_DIR=/path ./install.sh
 EOF
             exit 0 ;;
@@ -57,9 +66,10 @@ if [[ "$DRY" == "1" ]]; then
     echo "  1. install/upgrade opencode -> versi terbaru (installer resmi $OPENCODE_INSTALL_URL)"
     echo "  2. backup config lama (AGENTS.md, opencode.jsonc) -> $BACKUP_DIR (kalo ada)"
     echo "  3. deploy AGENTS.md (persona GANTENG x FOX) -> $CONFIG_DIR/AGENTS.md"
-    echo "  4. deploy opencode.jsonc (agent ganteng-fox + skills.paths) -> $CONFIG_DIR/opencode.jsonc"
-    echo "  5. clone/update fox skills -> $FOX_DIR (min $MIN_SKILLS SKILL.md)"
-    echo "  6. verifikasi: versi, skill count, config parse"
+    echo "  4. prompt provider OPSIONAL (Base URL / API key / Model — Enter = diskip, non-TTY lewat)"
+    echo "  5. deploy opencode.jsonc (agent ganteng-fox + skills.paths + provider kalo diisi)"
+    echo "  6. clone/update fox skills -> $FOX_DIR (min $MIN_SKILLS SKILL.md)"
+    echo "  7. verifikasi: versi, skill count, config parse"
     exit 0
 fi
 
@@ -112,16 +122,87 @@ else
     info "AGENTS.md lama dipertahankan (tanpa --force)"
 fi
 
-# --- 4. agent config (render placeholder) ---
+# --- 4. provider custom (OPSIONAL — bisa diskip) ---
+BASE_URL="${PROVIDER_BASE_URL:-}"
+API_KEY="${PROVIDER_API_KEY:-}"
+MODEL_ID="${PROVIDER_MODEL:-}"
+PROV_ID="${PROVIDER_ID:-}"
+
+prompt_provider() {
+    # interaktif TTY & belum ada input env → tanya (semua bisa Enter = diskip)
+    if [[ -t 0 && -z "$BASE_URL" ]]; then
+        echo
+        info "Provider custom — OPSIONAL (kosongkan semua = diskip):"
+        printf '  Base URL  [contoh http://ip:20128/v1] : '; IFS= read -r BASE_URL || true
+        if [[ -n "$BASE_URL" ]]; then
+            printf '  API key   [Enter kalo endpoint tanpa key] : '; IFS= read -r API_KEY || true
+            printf '  Model id  [Enter = auto-detect /models]   : '; IFS= read -r MODEL_ID || true
+            printf '  Provider id [custom]                      : '; IFS= read -r PROV_ID || true
+        fi
+        echo
+    fi
+    [[ -z "$BASE_URL" ]] && { info "Provider: diskip (pakai auth login / edit manual nanti)"; return 0; }
+
+    if [[ -z "$MODEL_ID" ]]; then
+        info "Auto-detect model dari $BASE_URL/models ..."
+        local auth=()
+        [[ -n "$API_KEY" ]] && auth=(-H "Authorization: Bearer $API_KEY")
+        MODEL_ID="$(curl -fsS --max-time 6 "${auth[@]}" "$BASE_URL/models" 2>/dev/null | python3 -c '
+import json, sys
+try: d = json.load(sys.stdin)
+except Exception: print(""); raise SystemExit
+ids = [m.get("id") for m in (d.get("data") or d.get("models") or [])
+       if isinstance(m, dict) and m.get("id")]
+print(ids[0] if ids else "")' 2>/dev/null || true)"
+    fi
+    if [[ -z "$MODEL_ID" ]]; then
+        warn "model gak ke-detect — provider DISKIP (isi PROVIDER_MODEL / isi ulang pas re-run --force)"
+        BASE_URL=""
+        return 0
+    fi
+    PROV_ID="$(printf '%s' "${PROV_ID:-custom}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed 's/-\{2,\}/-/g; s/^-//; s/-$//')"
+    [[ -z "$PROV_ID" ]] && PROV_ID="custom"
+    ok "Provider: $PROV_ID / model: $MODEL_ID"
+}
+
+# --- 5. agent config (render — placeholder + provider opsional) ---
 want_cfg=1
 [[ -f "$CONFIG_DIR/opencode.jsonc" && "$FORCE" != "1" ]] && want_cfg=0
 if [[ "$want_cfg" == "1" ]]; then
-    sed -e "s|__CONFIG_DIR__|$CONFIG_DIR|g" \
-        -e "s|__FOX_SKILLS__|$FOX_DIR/skills|g" \
-        "$SCRIPT_DIR/opencode.jsonc" > "$CONFIG_DIR/opencode.jsonc"
-    ok "opencode.jsonc deployed (agent ganteng-fox + skills.paths)"
+    prompt_provider
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$SCRIPT_DIR/opencode.jsonc" "$CONFIG_DIR/opencode.jsonc" \
+            "$CONFIG_DIR" "$FOX_DIR/skills" "$BASE_URL" "$API_KEY" "$MODEL_ID" "$PROV_ID" <<'PYEOF'
+import json, re, sys
+src, dst, cfgdir, fox, base, key, model, pid = sys.argv[1:9]
+raw = open(src, encoding="utf-8").read()
+raw = re.sub(r"^\s*//.*$", "", raw, flags=re.M)
+raw = re.sub(r",(\s*[}\]])", r"\1", raw)
+cfg = json.loads(raw)
+cfg["agent"]["ganteng-fox"]["corePrompt"] = [cfgdir + "/AGENTS.md"]
+cfg["skills"]["paths"] = [fox]
+if base:
+    prov = {
+        "npm": "@ai-sdk/openai-compatible",
+        "name": pid.upper(),
+        "options": {"baseURL": base},
+        "models": {model: {"name": model}},
+    }
+    if key:
+        prov["options"]["apiKey"] = key
+    cfg["provider"] = {pid: prov}
+    cfg["model"] = pid + "/" + model
+open(dst, "w", encoding="utf-8").write(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
+PYEOF
+        ok "opencode.jsonc deployed (agent ganteng-fox + skills.paths$([[ -n "$BASE_URL" ]] && echo ' + provider'))"
+    else
+        sed -e "s|__CONFIG_DIR__|$CONFIG_DIR|g" \
+            -e "s|__FOX_SKILLS__|$FOX_DIR/skills|g" \
+            "$SCRIPT_DIR/opencode.jsonc" > "$CONFIG_DIR/opencode.jsonc"
+        warn "python3 absen — provider dilewati, template polos di-deploy"
+    fi
 else
-    info "opencode.jsonc lama dipertahankan (tanpa --force)"
+    info "opencode.jsonc lama dipertahankan (tanpa --force — provider prompt dilewati)"
 fi
 
 # --- 5. fox skills ---
@@ -159,6 +240,12 @@ assert any("AGENTS.md" in p for p in ag["corePrompt"]), "corePrompt bukan AGENTS
 assert any("skills" in p for p in cfg["skills"]["paths"]), "skills.paths salah"
 assert "__CONFIG_DIR__" not in json.dumps(cfg), "placeholder CONFIG_DIR tidak tersubstitusi"
 assert "__FOX_SKILLS__" not in json.dumps(cfg), "placeholder FOX_SKILLS tidak tersubstitusi"
+if "provider" in cfg:
+    pid, prov = next(iter(cfg["provider"].items()))
+    mid = next(iter(prov["models"]))
+    assert cfg.get("model") == pid + "/" + mid, "model default bukan provider/model terdaftar"
+    assert prov["options"]["baseURL"].startswith("http"), "baseURL aneh"
+    print("provider OK: %s/%s (base %s)" % (pid, mid, prov["options"]["baseURL"]))
 print("config parse OK + placeholder tersubstitusi")
 PYEOF
 fi
@@ -173,6 +260,11 @@ fi
 
 echo
 ok "DONE. OpenCode $v_after + persona + $N skills siap."
+if [[ -n "${BASE_URL:-}" ]]; then
+    echo "  Provider : $PROV_ID / $MODEL_ID → $BASE_URL   (pilih /models di TUI)"
+else
+    echo "  Provider : diskip — nanti: opencode auth login atau isi PROVIDER_* + re-run --force"
+fi
 echo
 echo "  Jalankan:   opencode   (kalo masih 'command not found': exec bash atau login ssh baru)"
 echo "  Auth model: opencode auth login   (kalo provider belum ke-login)"
